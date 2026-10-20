@@ -15,4 +15,4 @@ with app.app_context():
 
 if __name__ == '__main__':
     # Використовуйте порт 5001, щоб уникнути конфліктів macOS
-    app.run(debug=True, port=5001)
+    app.run(host='0.0.0.0', port=5000)

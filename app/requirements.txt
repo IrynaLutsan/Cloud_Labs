@@ -1,0 +1,7 @@
+Flask
+Flask-SQLAlchemy
+PyMySQL
+cryptography
+marshmallow
+flask-marshmallow
+marshmallow-sqlalchemy

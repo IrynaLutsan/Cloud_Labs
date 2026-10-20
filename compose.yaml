@@ -1,0 +1,40 @@
+services:
+  #service MySQL db
+  db:
+    image: mysql:8.0
+    container_name: security_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secure_password
+      MYSQL_DATABASE: Security_system
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: app_password
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db_init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "app_user", "-papp_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  #service python REST API 
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: security_app
+    restart: on-failure
+    ports:
+      - "5001:5000"
+    environment:
+      DB_USER: app_user
+      DB_PASSWORD: app_password
+      DB_HOST: db:3306
+      DB_NAME: Security_system
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
