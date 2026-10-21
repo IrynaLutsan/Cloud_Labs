@@ -12,6 +12,7 @@ ma.init_app(app)
 with app.app_context():
     from app.my_project.dao import models  
     from app.my_project.controller import controllers 
+    db.create_all()
 
 if __name__ == '__main__':
     # Використовуйте порт 5001, щоб уникнути конфліктів macOS
