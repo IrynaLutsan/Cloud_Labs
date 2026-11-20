@@ -1,48 +1,63 @@
+import time
 from app.my_project import db
 from app.my_project.dao.models import Users, NotificationSettings, SystemNotifications, Objects
 from app.my_project.dto.schemas import users_schema, user_schema, object_schema
 from sqlalchemy import text
 
+#простий In-Memory кеш зі словником та TTL (45 секунд)
+CACHE_TTL = 45
+_users_list_cache = {"data": None, "expires_at": 0}
+_user_by_id_cache = {}
+
+def _invalidate_users_cache(user_id=None):
+    _users_list_cache["data"] = None
+    _users_list_cache["expires_at"] = 0
+    if user_id is not None:
+        _user_by_id_cache.pop(user_id, None)
+
 def get_all_users():
+    now = time.time()
+    if _users_list_cache["data"] is not None and now < _users_list_cache["expires_at"]:
+        return _users_list_cache["data"]
+
     all_users = Users.query.all()
-    
-    return users_schema.dump(all_users)
+    result = users_schema.dump(all_users)
+    _users_list_cache["data"] = result
+    _users_list_cache["expires_at"] = now + CACHE_TTL
+    return result
 
 def get_user_by_id(user_id):
+    now = time.time()
+    cached = _user_by_id_cache.get(user_id)
+    if cached and now < cached["expires_at"]:
+        return cached["data"]
 
-    user = Users.query.get_or_404(user_id) 
-    return user_schema.dump(user)
+    user = Users.query.get_or_404(user_id)
+    result = user_schema.dump(user)
+    _user_by_id_cache[user_id] = {"data": result, "expires_at": now + CACHE_TTL}
+    return result
 
 def create_user(data):
-    
     new_user = user_schema.load(data, session=db.session)
-    
     db.session.add(new_user)
-    
     db.session.commit()
-    
     return user_schema.dump(new_user)
 
 def update_user(user_id, data):
-    
     user = Users.query.get_or_404(user_id)
-    
     user = user_schema.load(data, instance=user, session=db.session, partial=True)
     db.session.add(user)
     db.session.commit()
+    _invalidate_users_cache(user_id)
     return user_schema.dump(user)
 
 def delete_user(user_id):
     user = Users.query.get_or_404(user_id)
-
     NotificationSettings.query.filter_by(user_id=user_id).delete()
-
     SystemNotifications.query.filter_by(user_id=user_id).delete()
-
     db.session.delete(user)
-
     db.session.commit()
-
+    _invalidate_users_cache(user_id)
     return "", 204
 
 def get_object_by_id(object_id):
@@ -137,7 +152,7 @@ def split_users_data_sp():
         result = result_cursor.fetchone() # Зчитуємо потрібний рядок
     # result_cursor автоматично закривається тут, очищуючи з'єднання.
     
-    # Тепер COMMIT може бути виконаний без помилки "out of sync"
+    #тепер COMMIT може бути виконаний без помилки "out of sync"
     db.session.commit() 
     
     if result:
