@@ -52,6 +52,11 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
 
 resource "aws_ecs_cluster" "main" {
   name = "cloud-labs-cluster"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 }
 
 resource "aws_ecs_task_definition" "app" {
